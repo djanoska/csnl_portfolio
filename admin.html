@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfólió Adminisztráció</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Montserrat', sans-serif; background-color: #f4f5f7; color: #1a1a1a; }</style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <!-- Login Container -->
+    <div id="login-modal" class="fixed inset-0 bg-gray-900/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white border border-gray-200 p-8 max-w-md w-full shadow-md rounded-sm">
+            <h2 class="text-xl font-medium tracking-wide mb-2 text-center">Admin Bejelentkezés</h2>
+            <p class="text-xs text-gray-500 text-center mb-6">Add meg a hozzáférési adatokat a folytatáshoz</p>
+            
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 uppercase tracking-wider mb-1">Felhasználónév</label>
+                    <input type="text" id="username" required class="w-full p-2.5 border border-gray-300 text-sm focus:outline-none focus:border-black">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 uppercase tracking-wider mb-1">Jelszó</label>
+                    <input type="password" id="password" required class="w-full p-2.5 border border-gray-300 text-sm focus:outline-none focus:border-black">
+                </div>
+                <p id="login-error" class="text-xs text-red-600 hidden">Hibás felhasználónév vagy jelszó.</p>
+                <button type="submit" class="w-full py-3 bg-black text-white text-xs uppercase tracking-wider hover:bg-gray-800 transition-colors">Belépés</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Panel Header -->
+    <header id="admin-header" class="bg-white border-b border-gray-200 px-6 py-6 flex justify-between items-center shadow-xs hidden">
+        <div>
+            <h1 class="text-xl font-medium tracking-wide">Portfólió Admin Panel</h1>
+            <p class="text-xs text-gray-500">Kategóriák, évek és művek kezelése</p>
+        </div>
+        <div class="flex gap-4">
+            <a href="index.html" target="_blank" class="px-4 py-2 border border-gray-300 text-xs uppercase tracking-wider hover:bg-gray-50 transition-colors">Főoldal megtekintése</a>
+            <button onclick="saveChanges()" class="px-5 py-2 bg-black text-white text-xs uppercase tracking-wider hover:bg-gray-800 transition-colors">Változtatások Mentése</button>
+            <button onclick="handleLogout()" class="px-3 py-2 bg-gray-100 text-gray-700 text-xs uppercase tracking-wider hover:bg-gray-200 transition-colors">Kilépés</button>
+        </div>
+    </header>
+
+    <!-- Admin Panel Main -->
+    <main id="admin-main" class="max-w-5xl mx-auto px-6 py-10 flex-grow w-full hidden">
+        <div id="toast" class="hidden mb-6 p-4 bg-green-100 text-green-800 text-xs tracking-wider rounded">Sikeres mentés! A változások azonnal látszódnak a főoldalon.</div>
+
+        <div class="flex border-b border-gray-300 mb-8 gap-6">
+            <button onclick="setActiveAdminCategory('festmenyek')" id="tab-festmenyek" class="admin-tab pb-3 text-sm font-medium border-b-2 border-black">Festmények</button>
+            <button onclick="setActiveAdminCategory('rajz')" id="tab-rajz" class="admin-tab pb-3 text-sm font-medium border-b-2 border-transparent text-gray-500">Rajz, kollázs, egyéb</button>
+            <button onclick="setActiveAdminCategory('mozgokep')" id="tab-mozgokep" class="admin-tab pb-3 text-sm font-medium border-b-2 border-transparent text-gray-500">Mozgókép</button>
+        </div>
+
+        <div class="bg-white border border-gray-200 p-6 shadow-xs rounded-sm mb-8">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-100">
+                <h2 id="active-cat-name" class="text-lg font-medium">Festmények</h2>
+                <div class="flex gap-2">
+                    <input type="text" id="new-sub-input" placeholder="Új év / kategória (pl. 2026)" class="px-3 py-1.5 border border-gray-300 text-xs">
+                    <button onclick="addSubfilter()" class="px-3 py-1.5 bg-gray-900 text-white text-xs">+ Év/Alkategória hozzáadása</button>
+                </div>
+            </div>
+
+            <div id="subfilters-editor-container" class="space-y-6"></div>
+        </div>
+    </main>
+
+    <footer class="bg-white border-t border-gray-200 text-center py-4 text-xs text-gray-400">
+        &copy; 2026 Nagy Lilla Adminisztráció
+    </footer>
+
+    <script>
+        const defaultData = {
+            festmenyek: {
+                title: "Festmények",
+                subtitle: "Válassz az évszámok közül a korszakok megtekintéséhez.",
+                subfilters: ["2025", "2023-2024", "2021-2022"],
+                data: {
+                    "2025": [{ title: "Csendélet és Fény", medium: "Olaj, vászon", type: "image", url: "" }],
+                    "2023-2024": [{ title: "Városi Részlet", medium: "Olaj, fa", type: "image", url: "" }],
+                    "2021-2022": [{ title: "Zöld Csendélet", medium: "Olaj, vászon", type: "image", url: "" }]
+                }
+            },
+            rajz: {
+                title: "Rajz, kollázs, egyéb",
+                subtitle: "Válogatott grafikai és vegyes technikájú munkák.",
+                subfilters: ["Grafika", "Kollázs"],
+                data: {
+                    "Grafika": [{ title: "Örvény", medium: "115x150 cm, szén", type: "image", url: "" }],
+                    "Kollázs": [{ title: "Papírrétegek I.", medium: "Kollázs", type: "image", url: "" }]
+                }
+            },
+            mozgokep: {
+                title: "Mozgókép",
+                subtitle: "Válassz az évszámok közül a mozgóképes munkák megtekintéséhez.",
+                subfilters: ["2026", "2014", "2012"],
+                data: {
+                    "2026": [{ title: "Kék madár", medium: "Stopmotion", type: "video", url: '<iframe width="560" height="315" src="https://www.youtube.com/embed/vaCoMqjHCqA" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>' }],
+                    "2014": [{ title: "Mozgókép Projekt 2014", medium: "Videó", type: "video", url: "" }],
+                    "2012": [{ title: "Mozgókép Projekt 2012", medium: "Videó", type: "video", url: "" }]
+                }
+            }
+        };
+
+        let siteData = JSON.parse(localStorage.getItem('lilla_portfolio_data')) || defaultData;
+        let currentAdminCat = 'festmenyek';
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (sessionStorage.getItem('lilla_admin_logged_in') === 'true') {
+                showAdminPanel();
+            }
+        });
+
+        function handleLogin(event) {
+            event.preventDefault();
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+
+            if (user === 'painter' && pass === 'Xtc9!') {
+                sessionStorage.setItem('lilla_admin_logged_in', 'true');
+                showAdminPanel();
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        }
+
+        function handleLogout() {
+            sessionStorage.removeItem('lilla_admin_logged_in');
+            location.reload();
+        }
+
+        function showAdminPanel() {
+            document.getElementById('login-modal').classList.add('hidden');
+            document.getElementById('admin-header').classList.remove('hidden');
+            document.getElementById('admin-main').classList.remove('hidden');
+            setActiveAdminCategory('festmenyek');
+        }
+
+        function setActiveAdminCategory(catKey) {
+            currentAdminCat = catKey;
+            document.querySelectorAll('.admin-tab').forEach(t => {
+                t.classList.remove('border-black', 'text-black');
+                t.classList.add('border-transparent', 'text-gray-500');
+            });
+            const activeTab = document.getElementById(`tab-${catKey}`);
+            activeTab.classList.remove('border-transparent', 'text-gray-500');
+            activeTab.classList.add('border-black', 'text-black');
+            
+            document.getElementById('active-cat-name').innerText = siteData[catKey].title;
+            renderAdminEditor();
+        }
+
+        function renderAdminEditor() {
+            const container = document.getElementById('subfilters-editor-container');
+            const catObj = siteData[currentAdminCat];
+            
+            if (!catObj.subfilters || catObj.subfilters.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-xs italic">Nincs még év vagy alkategória rögzítve.</p>';
+                return;
+            }
+
+            let html = '';
+            catObj.subfilters.forEach(sub => {
+                if (!catObj.data[sub]) catObj.data[sub] = [];
+                const items = catObj.data[sub];
+
+                html += `
+                    <div class="border border-gray-200 p-4 bg-gray-50/50 rounded-sm">
+                        <div class="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
+                            <h3 class="font-medium text-sm text-gray-800">időszak / kategória: <span class="text-black font-semibold">${sub}</span></h3>
+                            <button onclick="removeSubfilter('${sub}')" class="text-xs text-red-600 hover:underline">Időszak törlése</button>
+                        </div>
+                        
+                        <div class="space-y-3 mb-3">
+                `;
+
+                items.forEach((item, index) => {
+                    const isVideo = item.type === 'video';
+                    // Biztonságos értékadás a textareához / inputhoz
+                    const safeUrl = (item.url || '').replace(/"/g, '&quot;');
+
+                    html += `
+                        <div class="flex flex-col sm:flex-row gap-2 items-center bg-white p-3 border border-gray-200 text-xs">
+                            <input type="text" value="${item.title || ''}" placeholder="Mű címe" onchange="updateItem('${sub}', ${index}, 'title', this.value)" class="flex-1 p-1.5 border border-gray-200 w-full">
+                            <input type="text" value="${item.medium || ''}" placeholder="Technika / Leírás" onchange="updateItem('${sub}', ${index}, 'medium', this.value)" class="flex-1 p-1.5 border border-gray-200 w-full">
+                            
+                            <select onchange="updateItem('${sub}', ${index}, 'type', this.value); renderAdminEditor();" class="p-1.5 border border-gray-200 bg-white">
+                                <option value="image" ${!isVideo ? 'selected' : ''}>Kép</option>
+                                <option value="video" ${isVideo ? 'selected' : ''}>Videó (iframe)</option>
+                            </select>
+
+                            <input type="text" value="${safeUrl}" placeholder="${isVideo ? 'YouTube <iframe ...> kód' : 'Kép URL'}" onchange="updateItem('${sub}', ${index}, 'url', this.value)" class="flex-1 p-1.5 border border-gray-200 w-full font-mono text-[11px]">
+                            <button onclick="removeItem('${sub}', ${index})" class="px-2.5 py-1.5 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100">Törlés</button>
+                        </div>
+                    `;
+                });
+
+                html += `
+                        </div>
+                        <button onclick="addItem('${sub}')" class="px-3 py-1.5 bg-white border border-gray-300 text-xs hover:bg-gray-100">+ Új elem hozzáadása ehhez az évhez</button>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function addSubfilter() {
+            const input = document.getElementById('new-sub-input');
+            const val = input.value.trim();
+            if(!val) return;
+            if(siteData[currentAdminCat].subfilters.includes(val)) {
+                alert('Ez az év/kategória már létezik.');
+                return;
+            }
+            siteData[currentAdminCat].subfilters.push(val);
+            if(!siteData[currentAdminCat].data[val]) siteData[currentAdminCat].data[val] = [];
+            input.value = '';
+            renderAdminEditor();
+        }
+
+        function removeSubfilter(sub) {
+            if(confirm(`Biztosan törlöd a(z) "${sub}" időszakot és minden tartalmát?`)) {
+                siteData[currentAdminCat].subfilters = siteData[currentAdminCat].subfilters.filter(s => s !== sub);
+                delete siteData[currentAdminCat].data[sub];
+                renderAdminEditor();
+            }
+        }
+
+        function addItem(sub) {
+            const isVideoCat = currentAdminCat === 'mozgokep';
+            siteData[currentAdminCat].data[sub].push({ 
+                title: "Új elem", 
+                medium: isVideoCat ? "Videó" : "Olaj, vászon", 
+                type: isVideoCat ? "video" : "image", 
+                url: "" 
+            });
+            renderAdminEditor();
+        }
+
+        function removeItem(sub, index) {
+            siteData[currentAdminCat].data[sub].splice(index, 1);
+            renderAdminEditor();
+        }
+
+        function updateItem(sub, index, field, value) {
+            siteData[currentAdminCat].data[sub][index][field] = value;
+        }
+
+        function saveChanges() {
+            localStorage.setItem('lilla_portfolio_data', JSON.stringify(siteData));
+            const toast = document.getElementById('toast');
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3500);
+        }
+    </script>
+</body>
+</html>
